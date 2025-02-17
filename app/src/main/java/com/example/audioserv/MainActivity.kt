@@ -1,6 +1,8 @@
 package com.example.audioserv
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -26,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.SwipeRefreshState
 import kotlinx.coroutines.delay
@@ -37,6 +40,49 @@ class MainActivity : ComponentActivity() {
     private var ipAddress by mutableStateOf("")
     private var backPressedOnce = false
     private val handler = Handler(Looper.getMainLooper())
+    private var showTutorialText by mutableStateOf(true)  // State to show tutorial text
+
+    companion object {
+        private const val REQUEST_CODE_FOREGROUND_SERVICE_MEDIA_PROJECTION = 100
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        // Check for normal permissions (INTERNET, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE, CHANGE_WIFI_STATE)
+        checkAndNotifyPermission(Manifest.permission.FOREGROUND_SERVICE)
+        checkAndNotifyPermission(Manifest.permission.INTERNET)
+        checkAndNotifyPermission(Manifest.permission.ACCESS_NETWORK_STATE)
+        checkAndNotifyPermission(Manifest.permission.ACCESS_WIFI_STATE)
+        checkAndNotifyPermission(Manifest.permission.CHANGE_WIFI_STATE)
+    }
+
+    // Helper function to check and notify permission status for normal permissions
+    private fun checkAndNotifyPermission(permission: String) {
+        if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "$permission not granted", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Handle the result of the permission request
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        when (requestCode) {
+            REQUEST_CODE_FOREGROUND_SERVICE_MEDIA_PROJECTION -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // Permission granted, proceed with the functionality
+                    Toast.makeText(this, "Permission granted for Foreground Service Media Projection", Toast.LENGTH_SHORT).show()
+                } else {
+                    // Permission denied, handle accordingly
+                    Toast.makeText(this, "Permission denied for Foreground Service Media Projection", Toast.LENGTH_SHORT).show()
+                }
+            }
+            else -> {
+                // Handle other permissions results if needed
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,7 +110,8 @@ class MainActivity : ComponentActivity() {
                 logMessages = logMessages,
                 ipAddress = ipAddress,
                 isRefreshing = isRefreshing,
-                onRefresh = { isRefreshing = true }
+                onRefresh = { isRefreshing = true },
+                showTutorialText = showTutorialText // Pass the tutorial text state
             )
         }
 
@@ -108,6 +155,10 @@ class MainActivity : ComponentActivity() {
         }
         return "Unavailable"
     }
+
+    fun hideTutorialText() {
+        showTutorialText = false  // Hide the tutorial text once back is pressed twice
+    }
 }
 
 @Composable
@@ -115,7 +166,8 @@ fun AudioServerApp(
     logMessages: List<String>,
     ipAddress: String,
     isRefreshing: Boolean,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    showTutorialText: Boolean  // Receive the state for showing tutorial text
 ) {
     MaterialTheme {
         val swipeRefreshState = remember { SwipeRefreshState(isRefreshing) }
@@ -125,6 +177,22 @@ fun AudioServerApp(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
+            if (showTutorialText) {
+                Text(
+                    text = "◉ Swipe down to refresh IP Address!",
+                    fontSize = 10.sp
+                )
+                Text(
+                    text = "◉ Press back twice to exit the app!",
+                    fontSize = 10.sp,
+                    modifier = Modifier.padding(bottom = 5.dp)
+                )
+                Text(
+                    text = "ⓘ This app requires VB cable to run. Install the free version and set it as the default audio driver for the PC server. Check for tutorial on YouTube.",
+                    fontSize = 5.sp,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
             Text("Logs", fontSize = 24.sp, modifier = Modifier.padding(bottom = 16.dp))
             Text("IP Address: $ipAddress", fontSize = 16.sp, modifier = Modifier.padding(bottom = 16.dp))
             SwipeRefresh(
